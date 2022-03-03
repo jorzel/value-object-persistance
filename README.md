@@ -1,10 +1,9 @@
-# value-object-persitance
-Value object persistent strategies using SQLalchemy ORM
+# Overview
+Value object persistent strategies using SQLAlchemy ORM.
 
 ## Simple field
 ```python
 # value_objects/email.py
-
 class InvalidEmail(Exception):
     pass
 
@@ -49,10 +48,12 @@ class Shop:
 
 # orm.py
 from sqlalchemy import Column, Integer, String, Table
-from sqlalchemy.orm import mapper
+from sqlalchemy.orm import registry
 
 from db import metadata
 from models.shop import Shop
+
+mapper_registry = registry()
 
 shop = Table(
     "shop",
@@ -66,7 +67,7 @@ def run_mappers():
     Provides mapping between db tables and domain models.
     """
 
-    mapper(Shop, shop)
+    mapper_registry.map_imperatively(Shop, shop)
 
 ```
 
@@ -129,11 +130,13 @@ class Shop:
 
 # orm.py
 from sqlalchemy import Column, Enum, Integer, Table
-from sqlalchemy.orm import composite, mapper
+from sqlalchemy.orm import composite, registry
 
 from db import metadata
 from models.shop import Currency, Shop
 from value_objects.money import Money
+
+mapper_registry = registry()
 
 shop = Table(
     "shop",
@@ -149,11 +152,104 @@ def run_mappers():
     Provides mapping between db tables and domain models.
     """
 
-    mapper(
+    mapper_registry.map_imperatively(
         Shop,
         shop,
         properties={
             "balance": composite(Money, shop.c.balance_value, shop.c.balance_currency)
+        },
+    )
+
+```
+## Separated object
+```python
+# value_objects/location.py
+class InvalidGeolocation(Exception):
+    pass
+
+class Location:
+    def __init__(self, city: str, region: str, longitude: float, latitude: float):
+        if longitude < 0 or latitude < 0:
+            raise InvalidGeolocation
+        self._city = city
+        self._region = region
+        self._longitude = longitude
+        self._latitude = latitude
+
+    @property
+    def city(self) -> str:
+        return self._city
+
+    @property
+    def region(self) -> str:
+        return self._region
+
+    @property
+    def longitude(self) -> float:
+        return self._longitude
+
+    @property
+    def latitude(self) -> float:
+        return self._latitude
+
+# models/shop.py
+from typing import Optional
+from value_objects.location import Location
+
+class Shop:
+    def __init__(
+        self,
+        location: Optional[Location] = None,
+    ):
+        self.location = location
+
+
+# orm.py
+from sqlalchemy import Column, Float, ForeignKey, Integer, String, Table
+from sqlalchemy.orm import composite, registry, relationship
+from db import metadata
+from models.shop import Shop
+from value_objects.location import Location
+
+mapper_registry = registry()
+
+location = Table(
+    "location",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("city", String),
+    Column("region", String),
+    Column("longitude", Float),
+    Column("latitude", Float),
+)
+
+shop = Table(
+    "shop",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("location_id", Integer, ForeignKey("location.id")),
+)
+
+def run_mappers():
+    """
+    Provides mapping between db tables and domain models.
+    """
+
+    mapper_registry.map_imperatively(
+        Location,
+        location,
+        properties={
+            "_city": location.c.city,
+            "_region": location.c.region,
+            "_latitude": location.c.latitude,
+            "_longitude": location.c.longitude,
+        },
+    )
+    mapper_registry.map_imperatively(
+        Shop,
+        shop,
+        properties={
+            "location": relationship(Location),
         },
     )
 
