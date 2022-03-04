@@ -4,6 +4,7 @@ from models.shop import Item, Shop
 from value_objects.email import Email
 from value_objects.location import Location
 from value_objects.money import Currency, Money
+from value_objects.open_hours import OpenHours
 
 
 def test_shop_set_proper_email(db_session):
@@ -63,6 +64,28 @@ def test_shop_set_location(db_session):
     assert (
         db_session.execute(
             select(shop_table).where(shop_table.c.location_id == location.id)
+        ).first()
+        is not None
+    )
+
+
+def test_shop_set_proper_open_hours(db_session):
+    open_hours_config = {
+        "days": [1, 2, 3, 4, 5, 6],
+        "hours": [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+    }
+    shop = Shop(open_hours_config=OpenHours({}))
+    db_session.add(shop)
+
+    shop.open_hours = OpenHours(open_hours_config)
+
+    db_session.flush()
+    shop_table = Shop.__table__
+    assert (
+        db_session.execute(
+            select(shop_table).where(
+                shop_table.c.open_hours_config == open_hours_config
+            )
         ).first()
         is not None
     )

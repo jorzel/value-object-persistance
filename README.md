@@ -206,7 +206,7 @@ class Shop:
 
 # orm.py
 from sqlalchemy import Column, Float, ForeignKey, Integer, String, Table
-from sqlalchemy.orm import composite, registry, relationship
+from sqlalchemy.orm import registry, relationship
 from db import metadata
 from models.shop import Shop
 from value_objects.location import Location
@@ -251,6 +251,84 @@ def run_mappers():
         properties={
             "location": relationship(Location),
         },
+    )
+
+```
+
+## Schemaless document (json)
+```python
+# value_objects.open_hours.py
+from datetime import datetime
+from typing import Any
+
+class OpenHours:
+    def __init__(self, config: dict[str, Any]):
+        self._config = config
+
+    @property
+    def config(self) -> dict[str, Any]:
+        return self._config
+
+    @property
+    def days(self) -> list[str]:
+        return self._config.get("days", [])
+
+    @property
+    def hours(self) -> list[str]:
+        return self._config.get("hours", [])
+
+    def is_open(self, dt: datetime):
+        if dt.isoweekday() not in self.days:
+            return False
+        if dt.hour not in self.hours:
+            return False
+        return True
+
+# models/shop.py
+from value_objects.open_hours import OpenHours
+
+class Shop:
+    def __init__(
+        self,
+        open_hours_config: Optional[dict] = None,
+    ):
+        if not open_hours_config:
+            open_hours_config = {}
+        self.open_hours_config = open_hours_config
+
+    @property
+    def open_hours(self) -> OpenHours:
+        return OpenHours(self.open_hours_config)
+
+    @open_hours.setter
+    def open_hours(self, open_hours: OpenHours) -> None:
+        self.open_hours_config = open_hours.config
+
+# orm.py
+from sqlalchemy import Column, Integer, Table
+from sqlalchemy.dialects.sqlite import JSON
+from sqlalchemy.orm import registry
+
+from db import metadata
+from models.shop import Shop
+
+mapper_registry = registry()
+
+shop = Table(
+    "shop",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("open_hours_config", JSON, nullable=False, default=dict),
+)
+
+
+def run_mappers():
+    """
+    Provides mapping between db tables and domain models.
+    """
+    mapper_registry.map_imperatively(
+        Shop,
+        shop,
     )
 
 ```

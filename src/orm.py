@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Enum, Float, ForeignKey, Integer, String, Table
+from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import composite, registry, relationship
 
 from db import metadata
@@ -26,6 +27,7 @@ shop = Table(
     Column("balance_value", Integer, default=0, nullable=False),
     Column("balance_currency", Enum(Currency), default=Currency.USD, nullable=False),
     Column("location_id", Integer, ForeignKey("location.id")),
+    Column("open_hours_config", JSON, nullable=False, default=dict),
 )
 
 
