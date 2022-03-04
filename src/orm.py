@@ -1,4 +1,13 @@
-from sqlalchemy import Column, Enum, Float, ForeignKey, Integer, String, Table
+from sqlalchemy import (
+    Column,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import composite, registry, relationship
 
@@ -17,6 +26,13 @@ location = Table(
     Column("region", String),
     Column("longitude", Float),
     Column("latitude", Float),
+    UniqueConstraint(
+        "city",
+        "region",
+        "longitude",
+        "latitude",
+        name="uix_city_region_longitude_latitude",
+    ),
 )
 
 shop = Table(

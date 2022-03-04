@@ -3,6 +3,10 @@ class InvalidGeolocation(Exception):
 
 
 class Location:
+    """
+    >>>  Location(city='X', region='Y', longitude=21.11, latitude=20.01)
+    """
+
     def __init__(self, city: str, region: str, longitude: float, latitude: float):
         if longitude < 0 or latitude < 0:
             raise InvalidGeolocation

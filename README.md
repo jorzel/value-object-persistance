@@ -1,13 +1,42 @@
-# Overview
-Value object persistent strategies using SQLAlchemy ORM.
+
+## Overview
+Value objects are one of tactical building blocks for modeling business domain introduced and popularized by Domain Driven Design approach.
+However, we can exploit value objects even if we do not tackling complex domain problem. Value objects, in contrast to entites, are defined only
+by their attributes and do not have any identity. Two value objects are equal when their properties have the same values. Another important trait of a value object is immutability.
+Once created cannot be modified. Value object modification always result in creating a new instance of the value object.
+Here we have some examples when we can achieve some gains by value objects implementation:
+- distance
+- email
+- phone
+- location
+- open hours
+- money
+- subscription plan
+
+Value objects usually are useful when we encounter following challenges:
+- validation (e.g. encapsulate an email validation)
+- various representation (e.g. different representation of a money concept depending on a currency)
+- various presentation (e.g. different presentation of a distance concept depending on a country)
+
+However, due to not possesing an identity, value objects can come across some issues with how to persist them.
+Here, we suggest four different strategies of persistence value objects in SQLAlchemy ORM (trying to protect value object immutability requirement).
+1. [Simple field](#simple-field)
+2. [Composite field](#composite-field)
+3. [Separated object](#separated-object)
+4. [Schemaless document (json)](#schemaless-document-json)
 
 ## Simple field
+In the first approach, we define `Email` class to encapsulate validation logic, but
+persist only a string field column
 ```python
 # value_objects/email.py
 class InvalidEmail(Exception):
     pass
 
 class Email:
+    """
+    >>>  Email("m.x@test.pl")
+    """
     def __init__(self, value: str) -> None:
         if "@" not in value:
             raise InvalidEmail
@@ -42,8 +71,8 @@ class Shop:
         return Email(self.email_address)
 
     @email.setter
-    def email(self, email_address: str) -> None:
-        self.email_address = Email(email_address).address
+    def email(self, email: Email) -> None:
+        self.email_address = email.address
 
 
 # orm.py
@@ -72,7 +101,7 @@ def run_mappers():
 ```
 
 ## Composite field
-
+In the second approach we use sqlalchemy `composite` field to store two fields (int, enum) corresponding to `Money` concept.
 ```python
 # value_objects/money.py
 import enum
@@ -87,6 +116,9 @@ class Currency(enum.Enum):
     CHF = "CHF"
 
 class Money:
+    """
+    >>>  Money(value=21, currency=Currency.USD)
+    """
     def __init__(self, value: int, currency: Currency):
         self._value = value
         self._currency = currency
@@ -162,12 +194,16 @@ def run_mappers():
 
 ```
 ## Separated object
+Third option store value object in separated `Location` database record with `id`. However the `id` exist only in the persistance layer.
 ```python
 # value_objects/location.py
 class InvalidGeolocation(Exception):
     pass
 
 class Location:
+    """
+    >>>  Location(city='X', region='Y', longitude=21.11, latitude=20.01)
+    """
     def __init__(self, city: str, region: str, longitude: float, latitude: float):
         if longitude < 0 or latitude < 0:
             raise InvalidGeolocation
@@ -221,6 +257,13 @@ location = Table(
     Column("region", String),
     Column("longitude", Float),
     Column("latitude", Float),
+    UniqueConstraint(
+        'city',
+        'region',
+        'longitude',
+        'latitude',
+        name='uix_city_region_longitude_latitude'
+    )
 )
 
 shop = Table(
@@ -256,12 +299,16 @@ def run_mappers():
 ```
 
 ## Schemaless document (json)
+The last approach persist `OpenHour` concept as a json-like document. It is not provided by each db driver. However, you can use sqlite `JSON` or postgresql `JSONB` implementation.
 ```python
 # value_objects.open_hours.py
 from datetime import datetime
 from typing import Any
 
 class OpenHours:
+    """
+    >>>  OpenHours({'days': [1,2,3,4,5,6], 'hours': [8,9,10,11,12]})
+    """
     def __init__(self, config: dict[str, Any]):
         self._config = config
 
@@ -332,3 +379,6 @@ def run_mappers():
     )
 
 ```
+## Summary
+All patterns were implemented using python plain classes and imperative mapping style (to underscore domain and persistance model separation).
+Class (value object) properties are read-only to ensure immutability. Because of that, queries must be performed by using tables instead of models (`select(model.__table__).where(...)` instead of `select(model).where(...)`).

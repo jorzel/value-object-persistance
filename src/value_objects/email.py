@@ -3,6 +3,10 @@ class InvalidEmail(Exception):
 
 
 class Email:
+    """
+    >>>  Email("m.x@test.pl")
+    """
+
     def __init__(self, value: str) -> None:
         if "@" not in value:
             raise InvalidEmail

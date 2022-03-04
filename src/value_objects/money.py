@@ -13,6 +13,10 @@ class Currency(enum.Enum):
 
 
 class Money:
+    """
+    >>>  Money(value=21, currency=Currency.USD)
+    """
+
     def __init__(self, value: int, currency: Currency):
         self._value = value
         self._currency = currency
